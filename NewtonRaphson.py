@@ -3,47 +3,58 @@ import numpy as np
 import sympy as sp
 import pandas as pd
 import matplotlib.pyplot as plt
+import re
 
 # ---- App Title & UI ----
 st.set_page_config(page_title="Newton-Raphson Optimizer", layout="wide")
 st.title("Newton-Raphson Optimization Interactive Tool")
 st.markdown("""
-This app finds the minimum of your own mathematical function using the Newton-Raphson optimization method.
-Build your function by typing it or using the calculator-style buttons below. Review each calculation step!
+Type your function directly or use the calculator buttons below—it auto-inserts multiplication as needed!  
+Example: `x*sin(x)`, `x**3 - 6*x**2 + 4*x + 12`, `exp(-x)*cos(x)`
 """)
 
-# ---- Calculator-style input ----
-st.subheader("Input your function with calculator buttons or by typing:")
-if "func_input" not in st.session_state:
+# ---- Improved Calculator Input ----
+if 'func_input' not in st.session_state:
     st.session_state['func_input'] = ""
 
-# Button rows for calculator
-button_row1 = ['+', '-', '*', '/', '^', '(', ')']
-button_row2 = ['x', 'sin(', 'cos(', 'exp(', 'log(', 'sqrt(']
-button_row3 = ['Clear', 'Del']
+def insert_symbol(symbol):
+    s = st.session_state['func_input']
+    # Insert '*' if last character is a variable/number/close-paren, and symbol starts a function/variable
+    needs_mult = False
+    if symbol in ['x', 'sin(', 'cos(', 'exp(', 'log(', 'sqrt(']:
+        if s and (re.match(r"[0-9x)]$", s[-1])):
+            needs_mult = True
+    # Convert '^' to '**'
+    if symbol == '^':
+        symbol = '**'
+    st.session_state['func_input'] += ('*' if needs_mult else '') + symbol
 
-cols1 = st.columns(len(button_row1))
-cols2 = st.columns(len(button_row2))
-cols3 = st.columns(len(button_row3))
+# Calculator buttons
+row1 = ['x', '+', '-', '*', '/', '^']
+row2 = ['sin(', 'cos(', 'exp(', 'log(', 'sqrt(']
+row3 = ['(', ')', 'Del', 'Clear']
 
-for i, label in enumerate(button_row1):
+cols1 = st.columns(len(row1))
+for i, label in enumerate(row1):
     if cols1[i].button(label):
-        st.session_state['func_input'] += label if label != '^' else '**'
-
-for i, label in enumerate(button_row2):
+        insert_symbol(label)
+cols2 = st.columns(len(row2))
+for i, label in enumerate(row2):
     if cols2[i].button(label):
-        st.session_state['func_input'] += label
-
-for i, label in enumerate(button_row3):
+        insert_symbol(label)
+cols3 = st.columns(len(row3))
+for i, label in enumerate(row3):
     if cols3[i].button(label):
-        if label == 'Clear':
+        if label == "Clear":
             st.session_state['func_input'] = ""
-        elif label == 'Del':
+        elif label == "Del":
             st.session_state['func_input'] = st.session_state['func_input'][:-1]
+        else:
+            insert_symbol(label)
 
 func_str = st.text_input(
     "Function f(x):", 
-    value=st.session_state['func_input'], 
+    value=st.session_state['func_input'],
     key='func_field'
 )
 
@@ -81,7 +92,7 @@ init_guess = st.sidebar.number_input(
     value=1.00,
     format="%.2f"
 )
-st.sidebar.caption("Change and click 'Run' to update results.")
+st.sidebar.caption("Change any input and click 'Run' for updates.")
 
 # ---- Symbolic Parsing ----
 x = sp.Symbol('x')
@@ -96,13 +107,14 @@ try:
              f"- f''(x): `{sp.pretty(f_double_prime)}`", unsafe_allow_html=True)
     parsed_func = True
 except Exception:
-    st.error("Function Parse Error. See calculator help or try typing with proper math notation.")
+    st.error("Function Parse Error. Try using supported math syntax or calculator buttons.")
 
 st.markdown("""
 **Calculator Help:**  
-- Type or use calculator buttons: `+`, `-`, `*`, `/`, `(`, `)`, `^` for powers (auto-converts to `**` for Python).
-- Use `x` for your variable, and functions like `sin(`, `cos(`, `exp(`, `log(`, `sqrt(`.
-- Example: `x**3 - 6*x**2 + 4*x + 12`
+- Supported functions: `sin(x)`, `cos(x)`, `exp(x)`, `log(x)`, `sqrt(x)`
+- Use `^` for powers (auto-converts to `**` for Python)
+- Multiplication is auto-inserted (e.g., click `x` then `sin(` yields `x*sin(`)
+- Always match parentheses!
 """)
 
 # ---- Newton-Raphson Iteration ----
@@ -168,21 +180,20 @@ if st.button("Run Newton-Raphson Optimization") and parsed_func and tolerance is
     st.subheader("Function Plot (with Iteration Steps)")
     st.pyplot(plt, use_container_width=True)
 
-    # ---- Table Explanation ----
     st.info("""
-    | **Iteration:** Step number
-    | **X_i:** Current \(x\) value
-    | **f'(x):** First derivative at step
-    | **f''(x):** Second derivative for update
-    | **x_n+1:** Next approximation of \(x\)
-    | **|x_n+1 - X_i|:** Absolute error for iteration
-    | **e(tolerance):** As typed, no padded zeros
-    | **Error < Tol?:** TRUE or FALSE (text)
+    - **Iteration:** Step number
+    - **X_i:** Current \(x\) value
+    - **f'(x):** First derivative at step
+    - **f''(x):** Second derivative for update
+    - **x_n+1:** Next approximation of \(x\)
+    - **|x_n+1 - X_i|:** Absolute error for iteration
+    - **e(tolerance):** Your typed tolerance value
+    - **Error < Tol?:** Displays TRUE or FALSE
     """)
 
 st.markdown("""
 **Instructions:**  
-- Use calculator buttons or type your function directly using `x` and math operators/functions.
-- Enter tolerance as a decimal (e.g., 0.01, 0.001, 0.0001).
-- Adjust all other settings and click 'Run' for step-by-step results and graph!
+- Use calculator buttons for quick input, or type your function directly (with parentheses and multiplication).
+- Enter tolerance as decimal (no padded zeros).
+- Adjust all other settings and click 'Run' for stepwise results and visualization!
 """)
